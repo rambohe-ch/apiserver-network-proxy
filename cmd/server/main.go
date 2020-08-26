@@ -107,6 +107,8 @@ type ProxyRunOptions struct {
 	authenticationAudience string
 	// Path to kubeconfig (used by kubernetes client)
 	kubeconfigPath string
+	// Flag to switch between different proxy strategy
+	proxyStrategy string
 }
 
 func (o *ProxyRunOptions) Flags() *pflag.FlagSet {
@@ -132,6 +134,7 @@ func (o *ProxyRunOptions) Flags() *pflag.FlagSet {
 	flags.StringVar(&o.agentServiceAccount, "agent-service-account", o.agentServiceAccount, "Expected agent's service account during agent authentication (used with agent-namespace, authentication-audience, kubeconfig).")
 	flags.StringVar(&o.kubeconfigPath, "kubeconfig", o.kubeconfigPath, "absolute path to the kubeconfig file (used with agent-namespace, agent-service-account, authentication-audience).")
 	flags.StringVar(&o.authenticationAudience, "authentication-audience", o.authenticationAudience, "Expected agent's token authentication audience (used with agent-namespace, agent-service-account, kubeconfig).")
+	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy, "Proxy strategy can be either 'designating' or 'default'.")
 	return flags
 }
 
@@ -298,6 +301,7 @@ func newProxyRunOptions() *ProxyRunOptions {
 		agentServiceAccount:       "",
 		kubeconfigPath:            "",
 		authenticationAudience:    "",
+		proxyStrategy:             "default",
 	}
 	return &o
 }
@@ -347,7 +351,7 @@ func (p *Proxy) run(o *ProxyRunOptions) error {
 		KubernetesClient:       k8sClient,
 		AuthenticationAudience: o.authenticationAudience,
 	}
-	server := server.NewProxyServer(o.serverID, int(o.serverCount), authOpt)
+	server := server.NewProxyServer(o.proxyStrategy, o.serverID, int(o.serverCount), authOpt)
 
 	klog.Info("Starting master server for client connections.")
 	masterStop, err := p.runMasterServer(ctx, o, server)

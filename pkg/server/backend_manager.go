@@ -18,6 +18,8 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -57,21 +59,66 @@ func newBackend(conn agent.AgentService_ConnectServer) *backend {
 	return &backend{conn: conn}
 }
 
-// BackendManager is an interface to manage backend connections, i.e.,
-// connection to the proxy agents.
-type BackendManager interface {
-	// Backend returns a single backend.
-	Backend() (Backend, error)
+// BackendStorage is an interface to manage the storage of the backend
+// connections, i.e., get, add and remove
+type BackendStorage interface {
+	// GetBackend returns a backend associating to the agentID.
+	GetBackend(agentID string) Backend
 	// AddBackend adds a backend.
 	AddBackend(agentID string, conn agent.AgentService_ConnectServer) Backend
 	// RemoveBackend removes a backend.
 	RemoveBackend(agentID string, conn agent.AgentService_ConnectServer)
+	// NumBackends returns the number of backends.
+	NumBackends() int
+}
+
+// BackendManager is an interface to manage backend connections, i.e.,
+// connection to the proxy agents.
+type BackendManager interface {
+	// Backend returns a single backend.
+	Backend(i ...interface{}) (Backend, error)
+	BackendStorage
 }
 
 var _ BackendManager = &DefaultBackendManager{}
 
 // DefaultBackendManager is the default backend manager.
 type DefaultBackendManager struct {
+	*DefaultBackendStorage
+}
+
+func (dbm *DefaultBackendManager) Backend(i ...interface{}) (Backend, error) {
+	be := dbm.DefaultBackendStorage.GetRandomBackend()
+	if be == nil {
+		return nil, &ErrNotFound{}
+	}
+	return be, nil
+}
+
+var _BackendManager = &DesignatingBackendManager{}
+
+type DesignatingBackendManager struct {
+	BackendStorage
+}
+
+func (dbm *DesignatingBackendManager) Backend(i ...interface{}) (Backend, error) {
+	if len(i) != 1 {
+		return nil, fmt.Errorf("expect 1 argument, got %d", len(i))
+	}
+
+	agentID, ok := i[0].(string)
+	if !ok {
+		return nil, errors.New("type assertion failed")
+	}
+	be := dbm.BackendStorage.GetBackend(agentID)
+	if be == nil {
+		return nil, &ErrNotFound{}
+	}
+	return be, nil
+}
+
+// DefaultBackendStorage is the default backend storage.
+type DefaultBackendStorage struct {
 	mu sync.RWMutex //protects the following
 	// A map between agentID and its grpc connections.
 	// For a given agent, ProxyServer prefers backends[agentID][0] to send
@@ -87,15 +134,35 @@ type DefaultBackendManager struct {
 }
 
 // NewDefaultBackendManager returns a DefaultBackendManager.
-func NewDefaultBackendManager() *DefaultBackendManager {
-	return &DefaultBackendManager{
+func NewDefaultBackendManager(bs *DefaultBackendStorage) *DefaultBackendManager {
+	return &DefaultBackendManager{DefaultBackendStorage: bs}
+}
+
+// NewDesignatingBackendManager returns a DesignatingBackendManager
+func NewDesignatingBackendManager(bs BackendStorage) *DesignatingBackendManager {
+	return &DesignatingBackendManager{BackendStorage: bs}
+}
+
+// NewDefaultBackendStorage returns a DefaultBackendStorage
+func NewDefaultBackendStorage() *DefaultBackendStorage {
+	return &DefaultBackendStorage{
 		backends: make(map[string][]*backend),
 		random:   rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
+// GetBackend gets a backend associating to the agentID
+func (s *DefaultBackendStorage) GetBackend(agentID string) Backend {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if len(s.backends) == 0 {
+		return nil
+	}
+	return s.backends[agentID][0]
+}
+
 // AddBackend adds a backend.
-func (s *DefaultBackendManager) AddBackend(agentID string, conn agent.AgentService_ConnectServer) Backend {
+func (s *DefaultBackendStorage) AddBackend(agentID string, conn agent.AgentService_ConnectServer) Backend {
 	klog.Infof("register Backend %v for agentID %s", conn, agentID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -117,7 +184,7 @@ func (s *DefaultBackendManager) AddBackend(agentID string, conn agent.AgentServi
 }
 
 // RemoveBackend removes a backend.
-func (s *DefaultBackendManager) RemoveBackend(agentID string, conn agent.AgentService_ConnectServer) {
+func (s *DefaultBackendStorage) RemoveBackend(agentID string, conn agent.AgentService_ConnectServer) {
 	klog.Infof("remove Backend %v for agentID %s", conn, agentID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -151,6 +218,13 @@ func (s *DefaultBackendManager) RemoveBackend(agentID string, conn agent.AgentSe
 	}
 }
 
+// NumBackends resturns the number of available backends
+func (s *DefaultBackendStorage) NumBackends() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.backends)
+}
+
 // ErrNotFound indicates that no backend can be found.
 type ErrNotFound struct{}
 
@@ -159,16 +233,16 @@ func (e *ErrNotFound) Error() string {
 	return "No backend available"
 }
 
-// Backend returns a random backend.
-func (s *DefaultBackendManager) Backend() (Backend, error) {
+// GetRandomBackend returns a random backend.
+func (s *DefaultBackendStorage) GetRandomBackend() Backend {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if len(s.backends) == 0 {
-		return nil, &ErrNotFound{}
+		return nil
 	}
 	agentID := s.agentIDs[s.random.Intn(len(s.agentIDs))]
 	klog.Infof("pick agentID=%s as backend", agentID)
 	// always return the first connection to an agent, because the agent
 	// will close later connections if there are multiple.
-	return s.backends[agentID][0], nil
+	return s.backends[agentID][0]
 }

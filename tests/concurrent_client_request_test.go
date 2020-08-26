@@ -79,7 +79,7 @@ func (s *singleTimeManager) RemoveBackend(agentID string, conn agent.AgentServic
 	delete(s.backends, agentID)
 }
 
-func (s *singleTimeManager) Backend() (server.Backend, error) {
+func (s *singleTimeManager) Backend(_ ...interface{}) (server.Backend, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, v := range s.backends {
@@ -89,6 +89,14 @@ func (s *singleTimeManager) Backend() (server.Backend, error) {
 		}
 	}
 	return nil, fmt.Errorf("cannot find backend to a new agent")
+}
+
+func (s *singleTimeManager) GetBackend(agentID string) server.Backend {
+	return nil
+}
+
+func (s *singleTimeManager) NumBackends() int {
+	return 0
 }
 
 func newSingleTimeGetter(m *server.DefaultBackendManager) *singleTimeManager {
@@ -109,7 +117,8 @@ func TestConcurrentClientRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	ps.BackendManager = newSingleTimeGetter(server.NewDefaultBackendManager())
+	bs := server.NewDefaultBackendStorage()
+	ps.BackendManager = newSingleTimeGetter(server.NewDefaultBackendManager(bs))
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)

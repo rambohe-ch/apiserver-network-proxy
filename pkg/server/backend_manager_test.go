@@ -34,7 +34,7 @@ func TestAddRemoveBackends(t *testing.T) {
 	conn22 := new(fakeAgentService_ConnectServer)
 	conn3 := new(fakeAgentService_ConnectServer)
 
-	p := NewDefaultBackendManager()
+	p := NewDefaultBackendManager(NewDefaultBackendStorage())
 
 	p.AddBackend("agent1", conn1)
 	p.RemoveBackend("agent1", conn1)
@@ -47,7 +47,7 @@ func TestAddRemoveBackends(t *testing.T) {
 		t.Errorf("expected %v, got %v", e, a)
 	}
 
-	p = NewDefaultBackendManager()
+	p = NewDefaultBackendManager(NewDefaultBackendStorage())
 	p.AddBackend("agent1", conn1)
 	p.AddBackend("agent1", conn12)
 	// Adding the same connection again should be a no-op.

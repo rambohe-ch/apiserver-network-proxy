@@ -23,14 +23,17 @@ type ReadinessManager interface {
 	Ready() (bool, string)
 }
 
-var _ ReadinessManager = &DefaultBackendManager{}
+type DefaultReadinessManager struct {
+	BackendStorage
+}
 
-func (s *DefaultBackendManager) Ready() (bool, string) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if len(s.backends) == 0 {
+func NewDefaultReadinessManager(bs BackendStorage) *DefaultReadinessManager {
+	return &DefaultReadinessManager{BackendStorage: bs}
+}
+
+func (s *DefaultReadinessManager) Ready() (bool, string) {
+	if s.NumBackends() == 0 {
 		return false, "no connection to any proxy agent"
 	}
 	return true, ""
-
 }

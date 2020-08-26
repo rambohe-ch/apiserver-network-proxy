@@ -201,8 +201,16 @@ func (s *ProxyServer) getFrontendsForBackendConn(agentID string, backend Backend
 }
 
 // NewProxyServer creates a new ProxyServer instance
-func NewProxyServer(serverID string, serverCount int, agentAuthenticationOptions *AgentTokenAuthenticationOptions) *ProxyServer {
-	bm := NewDefaultBackendManager()
+func NewProxyServer(proxyStrategy, serverID string, serverCount int, agentAuthenticationOptions *AgentTokenAuthenticationOptions) *ProxyServer {
+	var bm BackendManager
+	bs := NewDefaultBackendStorage()
+	switch proxyStrategy {
+	case "designating":
+		bm = NewDesignatingBackendManager(bs)
+	default:
+		bm = NewDefaultBackendManager(bs)
+	}
+	rm := NewDefaultReadinessManager(bs)
 	return &ProxyServer{
 		frontends:                  make(map[string](map[int64]*ProxyClientConnection)),
 		PendingDial:                NewPendingDialManager(),
@@ -210,7 +218,7 @@ func NewProxyServer(serverID string, serverCount int, agentAuthenticationOptions
 		serverCount:                serverCount,
 		BackendManager:             bm,
 		AgentAuthenticationOptions: agentAuthenticationOptions,
-		Readiness:                  bm,
+		Readiness:                  rm,
 	}
 }
 
