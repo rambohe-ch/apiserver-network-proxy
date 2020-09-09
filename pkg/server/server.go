@@ -125,6 +125,8 @@ type ProxyServer struct {
 
 	// agent authentication
 	AgentAuthenticationOptions *AgentTokenAuthenticationOptions
+
+	proxyStrategy string
 }
 
 // AgentTokenAuthenticationOptions contains list of parameters required for agent token based authentication
@@ -205,9 +207,9 @@ func NewProxyServer(proxyStrategy, serverID string, serverCount int, agentAuthen
 	var bm BackendManager
 	bs := NewDefaultBackendStorage()
 	switch proxyStrategy {
-	case "designating":
-		bm = NewDesignatingBackendManager(bs)
-	default:
+	case "destIP":
+		bm = NewDestIPBackendManager(bs)
+	case "default":
 		bm = NewDefaultBackendManager(bs)
 	}
 	rm := NewDefaultReadinessManager(bs)
@@ -219,6 +221,7 @@ func NewProxyServer(proxyStrategy, serverID string, serverCount int, agentAuthen
 		BackendManager:             bm,
 		AgentAuthenticationOptions: agentAuthenticationOptions,
 		Readiness:                  rm,
+		proxyStrategy:              proxyStrategy,
 	}
 }
 
@@ -278,7 +281,15 @@ func (s *ProxyServer) serveRecvFrontend(stream client.ProxyService_ProxyServer, 
 			// the address, then we can send the Dial_REQ to the
 			// same agent. That way we save the agent from creating
 			// a new connection to the address.
-			backend, err = s.BackendManager.Backend()
+			ctx := context.Background()
+			switch s.proxyStrategy {
+			case "destIP":
+				dialReq := pkt.GetDialRequest()
+				ip := strings.Split(dialReq.Address, ":")[0]
+				ctx = context.WithValue(ctx, DestIPContextKey, ip)
+			case "default":
+			}
+			backend, err = s.BackendManager.Backend(ctx)
 			if err != nil {
 				klog.Errorf(">>> failed to get a backend: %v", err)
 				continue

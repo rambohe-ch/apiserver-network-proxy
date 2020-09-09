@@ -17,10 +17,12 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -68,7 +70,14 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	klog.Infof("Set pending(rand=%d) to %v", random, w)
-	backend, err := t.Server.BackendManager.Backend()
+	ctx := context.Background()
+	switch t.Server.proxyStrategy {
+	case "destIP":
+		ip := strings.Split(r.Host, ":")[0]
+		ctx = context.WithValue(ctx, DestIPContextKey, ip)
+	case "default":
+	}
+	backend, err := t.Server.BackendManager.Backend(ctx)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("currently no tunnels available: %v", err), http.StatusInternalServerError)
 		return

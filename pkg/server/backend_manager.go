@@ -19,7 +19,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -28,6 +27,8 @@ import (
 	client "sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client"
 	"sigs.k8s.io/apiserver-network-proxy/proto/agent"
 )
+
+const DestIPContextKey = "destIP"
 
 type Backend interface {
 	Send(p *client.Packet) error
@@ -76,7 +77,7 @@ type BackendStorage interface {
 // connection to the proxy agents.
 type BackendManager interface {
 	// Backend returns a single backend.
-	Backend(i ...interface{}) (Backend, error)
+	Backend(context.Context) (Backend, error)
 	BackendStorage
 }
 
@@ -87,7 +88,7 @@ type DefaultBackendManager struct {
 	*DefaultBackendStorage
 }
 
-func (dbm *DefaultBackendManager) Backend(i ...interface{}) (Backend, error) {
+func (dbm *DefaultBackendManager) Backend(_ context.Context) (Backend, error) {
 	be := dbm.DefaultBackendStorage.GetRandomBackend()
 	if be == nil {
 		return nil, &ErrNotFound{}
@@ -95,18 +96,18 @@ func (dbm *DefaultBackendManager) Backend(i ...interface{}) (Backend, error) {
 	return be, nil
 }
 
-var _BackendManager = &DesignatingBackendManager{}
+var _BackendManager = &DestIPBackendManager{}
 
-type DesignatingBackendManager struct {
+type DestIPBackendManager struct {
 	BackendStorage
 }
 
-func (dbm *DesignatingBackendManager) Backend(i ...interface{}) (Backend, error) {
-	if len(i) != 1 {
-		return nil, fmt.Errorf("expect 1 argument, got %d", len(i))
+func (dbm *DestIPBackendManager) Backend(ctx context.Context) (Backend, error) {
+	destIPInf := ctx.Value(DestIPContextKey)
+	if destIPInf == nil {
+		return nil, errors.New("no agentID found in the context")
 	}
-
-	agentID, ok := i[0].(string)
+	agentID, ok := destIPInf.(string)
 	if !ok {
 		return nil, errors.New("type assertion failed")
 	}
@@ -138,9 +139,9 @@ func NewDefaultBackendManager(bs *DefaultBackendStorage) *DefaultBackendManager 
 	return &DefaultBackendManager{DefaultBackendStorage: bs}
 }
 
-// NewDesignatingBackendManager returns a DesignatingBackendManager
-func NewDesignatingBackendManager(bs BackendStorage) *DesignatingBackendManager {
-	return &DesignatingBackendManager{BackendStorage: bs}
+// NewDestIPBackendManager returns a DestIPBackendManager
+func NewDestIPBackendManager(bs BackendStorage) *DestIPBackendManager {
+	return &DestIPBackendManager{BackendStorage: bs}
 }
 
 // NewDefaultBackendStorage returns a DefaultBackendStorage

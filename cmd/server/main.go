@@ -134,7 +134,7 @@ func (o *ProxyRunOptions) Flags() *pflag.FlagSet {
 	flags.StringVar(&o.agentServiceAccount, "agent-service-account", o.agentServiceAccount, "Expected agent's service account during agent authentication (used with agent-namespace, authentication-audience, kubeconfig).")
 	flags.StringVar(&o.kubeconfigPath, "kubeconfig", o.kubeconfigPath, "absolute path to the kubeconfig file (used with agent-namespace, agent-service-account, authentication-audience).")
 	flags.StringVar(&o.authenticationAudience, "authentication-audience", o.authenticationAudience, "Expected agent's token authentication audience (used with agent-namespace, agent-service-account, kubeconfig).")
-	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy, "Proxy strategy can be either 'designating' or 'default'.")
+	flags.StringVar(&o.proxyStrategy, "proxy-strategy", o.proxyStrategy, "Proxy strategy can be either 'destIP' or 'default'.")
 	return flags
 }
 
@@ -273,6 +273,13 @@ func (o *ProxyRunOptions) Validate() error {
 				return fmt.Errorf("error checking kubeconfigPath %q, got %v", o.kubeconfigPath, err)
 			}
 		}
+	}
+
+	switch o.proxyStrategy {
+	case "destIP":
+	case "default":
+	default:
+		return fmt.Errorf("unknown proxy strategy: %s", o.proxyStrategy)
 	}
 
 	return nil
