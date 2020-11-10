@@ -35,7 +35,7 @@ type ProxyStrategy string
 
 const (
 	ProxyStrategyDestHost ProxyStrategy = "destHost"
-	ProxyDestHeader       string        = "X-Tunnel-Proxy-Dest"
+	ProxyHostHeader       string        = "X-Tunnel-Proxy-Host"
 )
 
 // GenProxyStrategiesFromStr generates the list of proxy strategies from the
@@ -283,8 +283,8 @@ func GenIndexInfoForBackend(req *http.Request) string {
 	}
 
 	indexInfo := req.Host
-	if len(req.Header.Get(ProxyDestHeader)) != 0 {
-		indexInfo = req.Header.Get(ProxyDestHeader)
+	if len(req.Header.Get(ProxyHostHeader)) != 0 {
+		indexInfo = req.Header.Get(ProxyHostHeader)
 	}
 
 	return indexInfo
