@@ -50,5 +50,6 @@ func (dibm *DestHostBackendManager) Backend(ctx context.Context) (Backend, error
 			return dibm.backends[destHost][0], nil
 		}
 	}
+	klog.V(2).Infof("DestHostBackend for %s is not found", destHost)
 	return nil, &ErrNotFound{}
 }
