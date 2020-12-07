@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -55,6 +54,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer conn.Close()
 
 	random := rand.Int63()
 	dialRequest := &client.Packet{
@@ -71,7 +71,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	klog.V(4).Infof("Set pending(rand=%d) to %v", random, w)
 	backend, err := t.Server.getBackend(GenIndexInfoForBackend(r))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("currently no tunnels available: %v", err), http.StatusInternalServerError)
+		klog.ErrorS(err, "currently no tunnels available")
 		return
 	}
 	connected := make(chan struct{})
@@ -85,6 +85,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t.Server.PendingDial.Add(random, connection)
 	if err := backend.Send(dialRequest); err != nil {
 		klog.ErrorS(err, "failed to tunnel dial request")
+		t.Server.PendingDial.Remove(random)
 		return
 	}
 	ctxt := backend.Context()
@@ -102,7 +103,10 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case <-connection.connected: // Waiting for response before we begin full communication.
 	}
 
-	defer conn.Close()
+	if connection.connectID == 0 {
+		klog.Errorf("wait for dial response timeout with random %d", random)
+		return
+	}
 
 	klog.V(3).InfoS("Starting proxy to host", "host", r.Host)
 	pkt := make([]byte, 1<<12)
