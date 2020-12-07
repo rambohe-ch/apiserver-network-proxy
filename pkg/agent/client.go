@@ -305,6 +305,16 @@ func (a *AgentClient) initializeAuthContext(ctx context.Context) (context.Contex
 // The requests include things like opening a connection to a server,
 // streaming data and close the connection.
 func (a *AgentClient) Serve() {
+	defer func() {
+		// close all of conns with remote when AgentClient closed
+		a.connManager.mu.Lock()
+		klog.V(2).InfoS("cleanup all of conn contexts when agent client exits", "agentID", a.agentID)
+		for _, ctx := range a.connManager.connections {
+			ctx.cleanup()
+		}
+		a.connManager.mu.Unlock()
+	}()
+
 	klog.V(2).InfoS("Start serving", "serverID", a.serverID)
 	go a.probe()
 	for {
