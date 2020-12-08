@@ -74,6 +74,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		klog.ErrorS(err, "currently no tunnels available")
 		return
 	}
+
 	connected := make(chan struct{})
 	connection := &ProxyClientConnection{
 		Mode:      "http-connect",
@@ -82,6 +83,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		start:     time.Now(),
 		backend:   backend,
 	}
+
 	t.Server.PendingDial.Add(random, connection)
 	if err := backend.Send(dialRequest); err != nil {
 		klog.ErrorS(err, "failed to tunnel dial request")
@@ -108,7 +110,9 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	klog.V(3).InfoS("Starting proxy to host", "host", r.Host)
+	klog.V(2).InfoS("Starting proxy to host", "host", r.Host,
+		"agentID", connection.agentID,
+		"connectionID", connection.connectID)
 	pkt := make([]byte, 1<<12)
 
 	connID := connection.connectID
@@ -119,11 +123,11 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		n, err := bufrw.Read(pkt[:])
 		acc += n
 		if err == io.EOF {
-			klog.V(1).InfoS("EOF from host", "host", r.Host)
+			klog.V(1).InfoS("EOF from host", "host", r.Host, "agentID", agentID, "connID", connID)
 			break
 		}
 		if err != nil {
-			klog.ErrorS(err, "Received failure on connection")
+			klog.ErrorS(err, "Received failure on connection", "host", r.Host, "agentID", agentID, "connID", connID)
 			break
 		}
 
@@ -138,7 +142,7 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		err = backend.Send(packet)
 		if err != nil {
-			klog.ErrorS(err, "error sending packet")
+			klog.ErrorS(err, "error sending packet", "host", r.Host, "agentID", agentID, "connID", connID)
 			break
 		}
 		klog.V(5).InfoS("Forwarding data on tunnel to agent",

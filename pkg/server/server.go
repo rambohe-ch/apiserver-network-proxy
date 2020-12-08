@@ -258,7 +258,7 @@ func (s *ProxyServer) removeBackend(agentID string, conn agent.AgentService_Conn
 }
 
 func (s *ProxyServer) addFrontend(agentID string, connID int64, p *ProxyClientConnection) {
-	klog.V(2).InfoS("Register frontend for agent", "frontend", p, "agentID", agentID, "connectionID", connID)
+	klog.V(4).InfoS("Register frontend for agent", "frontend", p, "agentID", agentID, "connectionID", connID)
 	s.fmu.Lock()
 	defer s.fmu.Unlock()
 	if _, ok := s.frontends[agentID]; !ok {
@@ -646,7 +646,7 @@ func (s *ProxyServer) serveRecvBackend(backend Backend, stream agent.AgentServic
 		// TODO(#126): Frontends in PendingDial state that have not been added to the
 		//             list of frontends should also be closed.
 		frontends, _ := s.getFrontendsForBackendConn(agentID, backend)
-		klog.V(3).InfoS("Close frontends connected to agent", "count", len(frontends), "agentID", agentID)
+		klog.V(2).InfoS("Close frontends connected to agent", "count", len(frontends), "agentID", agentID)
 
 		for _, frontend := range frontends {
 			s.removeFrontend(agentID, frontend.connectID)
