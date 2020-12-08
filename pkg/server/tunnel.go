@@ -144,5 +144,18 @@ func (t *Tunnel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"connectionID", connection.connectID)
 	}
 
+	packet := &client.Packet{
+		Type: client.PacketType_CLOSE_REQ,
+		Payload: &client.Packet_CloseRequest{
+			CloseRequest: &client.CloseRequest{
+				ConnectID: connID,
+			},
+		},
+	}
+
+	if err = backend.Send(packet); err != nil {
+		klog.ErrorS(err, "error sending close request packet", "host", r.Host, "agentID", agentID, "connID", connID)
+	}
+
 	klog.V(5).InfoS("Stopping transfer to host", "host", r.Host, "agentID", agentID, "connectionID", connID)
 }
