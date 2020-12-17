@@ -307,12 +307,10 @@ func (a *AgentClient) initializeAuthContext(ctx context.Context) (context.Contex
 func (a *AgentClient) Serve() {
 	defer func() {
 		// close all of conns with remote when AgentClient closed
-		a.connManager.mu.Lock()
 		klog.V(2).InfoS("cleanup all of conn contexts when agent client exits", "agentID", a.agentID)
-		for _, ctx := range a.connManager.connections {
-			ctx.cleanup()
+		for _, connCtx := range a.connManager.connections {
+			connCtx.cleanup()
 		}
-		a.connManager.mu.Unlock()
 	}()
 
 	klog.V(2).InfoS("Start serving", "serverID", a.serverID)
