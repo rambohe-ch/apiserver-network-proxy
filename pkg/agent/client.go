@@ -80,6 +80,16 @@ func newConnectionManager() *connectionManager {
 	}
 }
 
+func (cm *connectionManager) List() []*connContext {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	connContexts := make([]*connContext, 0, len(cm.connections))
+	for _, connCtx := range cm.connections {
+		connContexts = append(connContexts, connCtx)
+	}
+	return connContexts
+}
+
 // AgentIdentifiers stores identifiers that will be used by the server when
 // choosing agents
 type AgentIdentifiers struct {
@@ -307,10 +317,10 @@ func (a *AgentClient) initializeAuthContext(ctx context.Context) (context.Contex
 func (a *AgentClient) Serve() {
 	defer func() {
 		// close all of conns with remote when AgentClient closed
-		klog.V(2).InfoS("cleanup all of conn contexts when agent client exits", "agentID", a.agentID)
-		for _, connCtx := range a.connManager.connections {
+		for _, connCtx := range a.connManager.List() {
 			connCtx.cleanup()
 		}
+		klog.V(2).InfoS("cleanup all of conn contexts when agent client exits", "agentID", a.agentID)
 	}()
 
 	klog.V(2).InfoS("Start serving", "serverID", a.serverID)
