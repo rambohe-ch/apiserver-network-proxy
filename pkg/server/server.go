@@ -734,7 +734,9 @@ func (s *ProxyServer) serveRecvBackend(backend Backend, stream agent.AgentServic
 			}
 			if err := frontend.send(pkt); err != nil {
 				// Normal when frontend closes it.
-				klog.ErrorS(err, "CLOSE_RSP send to client stream error")
+				if !strings.Contains(err.Error(), "use of closed network connection") {
+					klog.ErrorS(err, "CLOSE_RSP send to client stream error")
+				}
 			} else {
 				klog.V(5).Infoln("CLOSE_RSP sent to frontend")
 			}
