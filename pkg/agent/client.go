@@ -464,7 +464,9 @@ func (a *AgentClient) remoteToProxy(connID int64, ctx *connContext) {
 			return
 		} else if err != nil {
 			// Normal when receive a CLOSE_REQ
-			klog.ErrorS(err, "connection read failure", "connID", connID)
+			if !strings.Contains(err.Error(), "use of closed network connection") {
+				klog.ErrorS(err, "connection read failure", "connID", connID)
+			}
 			return
 		} else {
 			resp.Payload = &client.Packet_Data{Data: &client.Data{
@@ -492,7 +494,9 @@ func (a *AgentClient) proxyToRemote(connID int64, ctx *connContext) {
 				klog.ErrorS(err, "write to remote with failure", "connID", connID, "lastData", n)
 				pos += n
 			} else {
-				klog.ErrorS(err, "conn write failure", "connID", connID)
+				if !strings.Contains(err.Error(), "use of closed network connection") {
+					klog.ErrorS(err, "conn write failure", "connID", connID)
+				}
 				return
 			}
 		}

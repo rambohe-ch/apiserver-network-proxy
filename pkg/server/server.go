@@ -279,7 +279,7 @@ func (s *ProxyServer) removeFrontend(agentID string, connID int64) {
 		klog.V(2).InfoS("Cannot find connection for agent in the frontends", "connectionID", connID, "agentID", agentID)
 		return
 	}
-	klog.V(2).InfoS("Remove frontend for agent", "frontend", conns[connID], "agentID", agentID, "connectionID", connID)
+	klog.V(2).InfoS("Remove frontend for agent", "agentID", agentID, "connectionID", connID)
 	delete(s.frontends[agentID], connID)
 	if len(s.frontends[agentID]) == 0 {
 		delete(s.frontends, agentID)
@@ -718,7 +718,9 @@ func (s *ProxyServer) serveRecvBackend(backend Backend, stream agent.AgentServic
 			}
 			if err := frontend.send(pkt); err != nil {
 				// Normal when frontend closes it.
-				klog.ErrorS(err, "CLOSE_RSP send to client stream error")
+				if !strings.Contains(err.Error(), "use of closed network connection") {
+					klog.ErrorS(err, "CLOSE_RSP send to client stream error")
+				}
 			} else {
 				klog.V(5).Infoln("CLOSE_RSP sent to frontend")
 			}
