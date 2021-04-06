@@ -29,6 +29,7 @@ import (
 
 	"google.golang.org/grpc/metadata"
 	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client"
@@ -540,7 +541,7 @@ func (s *ProxyServer) validateAuthToken(token string) error {
 			Audiences: []string{s.AgentAuthenticationOptions.AuthenticationAudience},
 		},
 	}
-	r, err := s.AgentAuthenticationOptions.KubernetesClient.AuthenticationV1().TokenReviews().Create(trReq)
+	r, err := s.AgentAuthenticationOptions.KubernetesClient.AuthenticationV1().TokenReviews().Create(context.Background(), trReq, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("Failed to authenticate request. err:%v", err)
 	}
