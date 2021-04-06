@@ -12,10 +12,10 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 	google.golang.org/grpc v1.27.0
-	k8s.io/api v0.17.1
-	k8s.io/apimachinery v0.17.1
-	k8s.io/client-go v0.17.1
-	k8s.io/component-base v0.17.1
+	k8s.io/api v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v0.18.8
+	k8s.io/component-base v0.18.8
 	k8s.io/klog/v2 v2.0.0
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.0
 )
