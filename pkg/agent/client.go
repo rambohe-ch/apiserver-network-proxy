@@ -335,10 +335,10 @@ func (a *Client) Serve() {
 		pkt, err := a.Recv()
 		if err != nil {
 			if err == io.EOF {
-				klog.V(2).Infoln("received EOF, exit")
+				klog.V(2).InfoS("received EOF, exit", "serverID", a.serverID)
 				return
 			}
-			klog.ErrorS(err, "could not read stream")
+			klog.ErrorS(err, "could not read stream", "serverID", a.serverID)
 			return
 		}
 
@@ -377,7 +377,7 @@ func (a *Client) Serve() {
 				conn:   conn,
 				dataCh: dataCh,
 				cleanFunc: func() {
-					klog.V(4).InfoS("close connection", "connectionID", connID)
+					klog.V(2).InfoS("close connection", "connectionID", connID)
 					resp := &client.Packet{
 						Type:    client.PacketType_CLOSE_RSP,
 						Payload: &client.Packet_CloseResponse{CloseResponse: &client.CloseResponse{}},
@@ -390,7 +390,7 @@ func (a *Client) Serve() {
 					}
 
 					if err := a.Send(resp); err != nil {
-						klog.ErrorS(err, "close response failure")
+						klog.ErrorS(err, "close response failure", "connectionID", connID)
 					}
 
 					close(dataCh)
@@ -407,6 +407,7 @@ func (a *Client) Serve() {
 
 			go a.remoteToProxy(connID, ctx)
 			go a.proxyToRemote(connID, ctx)
+			klog.V(2).Infof("received dial request to %s:%s with random=%d and connID=%d", dialReq.Protocol, dialReq.Address, dialReq.Random, connID)
 
 		case client.PacketType_DATA:
 			data := pkt.GetData()
@@ -458,11 +459,11 @@ func (a *Client) remoteToProxy(connID int64, ctx *connContext) {
 		klog.V(4).InfoS("received data from remote", "bytes", n, "connID", connID)
 
 		if err == io.EOF {
-			klog.V(2).Infoln("connection EOF")
+			klog.V(2).InfoS("connection read EOF", "connID", connID)
 			return
 		} else if err != nil {
 			// Normal when receive a CLOSE_REQ
-			klog.ErrorS(err, "connection read failure")
+			klog.ErrorS(err, "connection read failure", "connID", connID)
 			return
 		} else {
 			resp.Payload = &client.Packet_Data{Data: &client.Data{
@@ -470,7 +471,7 @@ func (a *Client) remoteToProxy(connID int64, ctx *connContext) {
 				ConnectID: connID,
 			}}
 			if err := a.Send(resp); err != nil {
-				klog.ErrorS(err, "stream send failure")
+				klog.ErrorS(err, "stream send failure", "connID", connID)
 			}
 		}
 	}
@@ -490,7 +491,7 @@ func (a *Client) proxyToRemote(connID int64, ctx *connContext) {
 				klog.ErrorS(err, "write to remote with failure", "connID", connID, "lastData", n)
 				pos += n
 			} else {
-				klog.ErrorS(err, "conn write failure")
+				klog.ErrorS(err, "conn write failure", "connID", connID)
 				return
 			}
 		}
