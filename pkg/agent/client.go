@@ -364,6 +364,7 @@ func (a *Client) Serve() {
 			start := time.Now()
 			conn, err := net.Dial(dialReq.Protocol, dialReq.Address)
 			if err != nil {
+				klog.ErrorS(err, "could not dial", "protocol", dialReq.Protocol, "address", dialReq.Address)
 				resp.GetDialResponse().Error = err.Error()
 				if err := a.Send(resp); err != nil {
 					klog.ErrorS(err, "could not send stream")

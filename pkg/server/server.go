@@ -233,6 +233,7 @@ func (s *ProxyServer) addBackend(agentID string, conn agent.AgentService_Connect
 			backend = s.BackendManagers[i].AddBackend(agentID, pkgagent.UID, conn)
 		}
 	}
+	metrics.Metrics.IncRegisteredAgent(agentID)
 	return
 }
 
@@ -261,6 +262,7 @@ func (s *ProxyServer) removeBackend(agentID string, conn agent.AgentService_Conn
 			bm.RemoveBackend(agentID, pkgagent.UID, conn)
 		}
 	}
+	metrics.Metrics.DecRegisteredAgent(agentID)
 }
 
 func (s *ProxyServer) addFrontend(agentID string, connID int64, p *ProxyClientConnection) {
@@ -708,7 +710,7 @@ func (s *ProxyServer) serveRecvBackend(backend Backend, stream agent.AgentServic
 				frontend.agentID = agentID
 				s.addFrontend(agentID, resp.ConnectID, frontend)
 				close(frontend.connected)
-				metrics.Metrics.ObserveDialLatency(time.Since(frontend.start))
+				metrics.Metrics.ObserveDialLatency(agentID, time.Since(frontend.start))
 			}
 
 		case client.PacketType_DATA:

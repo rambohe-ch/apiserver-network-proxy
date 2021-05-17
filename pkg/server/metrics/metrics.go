@@ -39,7 +39,9 @@ var (
 
 // ServerMetrics includes all the metrics of the proxy server.
 type ServerMetrics struct {
-	latencies *prometheus.HistogramVec
+	latencies               *prometheus.HistogramVec
+	registeredAgents        *prometheus.GaugeVec
+	registeredAgentsCounter prometheus.Gauge
 }
 
 // newServerMetrics create a new ServerMetrics, configured with default metric names.
@@ -52,10 +54,31 @@ func newServerMetrics() *ServerMetrics {
 			Help:      "Latency of dial to the remote endpoint in seconds",
 			Buckets:   latencyBuckets,
 		},
-		[]string{},
+		[]string{"agent"},
 	)
+	registeredAgents := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "registered_agents",
+			Help:      "specified agentID is registered or not",
+		},
+		[]string{"agentID"})
+	registeredAgentsCounter := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "total_registered_agents",
+			Help:      "total of registered agents in server",
+		})
 	prometheus.MustRegister(latencies)
-	return &ServerMetrics{latencies: latencies}
+	prometheus.MustRegister(registeredAgents)
+	prometheus.MustRegister(registeredAgentsCounter)
+	return &ServerMetrics{
+		latencies:               latencies,
+		registeredAgents:        registeredAgents,
+		registeredAgentsCounter: registeredAgentsCounter,
+	}
 }
 
 // Reset resets the metrics.
@@ -64,6 +87,18 @@ func (a *ServerMetrics) Reset() {
 }
 
 // ObserveDialLatency records the latency of dial to the remote endpoint.
-func (a *ServerMetrics) ObserveDialLatency(elapsed time.Duration) {
-	a.latencies.WithLabelValues().Observe(elapsed.Seconds())
+func (a *ServerMetrics) ObserveDialLatency(agent string, elapsed time.Duration) {
+	a.latencies.WithLabelValues(agent).Observe(elapsed.Seconds())
+}
+
+// IncRegisteredAgent add one agent in registration
+func (a *ServerMetrics) IncRegisteredAgent(agentID string) {
+	a.registeredAgents.WithLabelValues(agentID).Set(float64(1))
+	a.registeredAgentsCounter.Inc()
+}
+
+// DecRegisteredAgent dec one agent in registration
+func (a *ServerMetrics) DecRegisteredAgent(agentID string) {
+	a.registeredAgents.WithLabelValues(agentID).Set(float64(0))
+	a.registeredAgentsCounter.Dec()
 }
